@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 //@RequestMapping("/api")
 public class Display {
 	
-	Configuration con = new Configuration().configure().addAnnotatedClass(Employee.class).addAnnotatedClass(Department.class).addAnnotatedClass(Alien.class);
+	Configuration con = new Configuration().configure();
 //	
 	SessionFactory sf = con.buildSessionFactory();
 //	
@@ -48,7 +48,7 @@ Transaction tx1 = session.beginTransaction();
 //
 //String startTime=timeInterval.substring(0, in);
 //String endTime=timeInterval.substring(in+1);
-List<Object> employees = session.createNativeQuery("select sum(A.count) from\n"
+List<Object> obj = session.createNativeQuery("select sum(A.count) from\n"
 		+ "(select count(*) as count from \"PARCHA.SRIKANTHR\".ARRESTEE\n"
 		+ "UNION ALL\n"
 		+ "select count(*)as count from \"PARCHA.SRIKANTHR\".BIAS_LIST\n"
@@ -74,16 +74,8 @@ List<Object> employees = session.createNativeQuery("select sum(A.count) from\n"
 		+ "select count(*)as count from \"PARCHA.SRIKANTHR\".VICTIM_OFFENDER_REL\n"
 		+ "UNION ALL\n"
 		+ "select count(*)as count from \"PARCHA.SRIKANTHR\".VICTIM_OFFENSE)A").list();
-System.out.println(employees.get(0));
-BigDecimal count = (BigDecimal) employees.get(0);
-//double c =  (double)employees.get(0);
-//session.save(human);
-//for (Object[] objects : employees) {
-////Integer month=Integer.valueOf(objects[2]);
-////Integer count = (Integer) id;
-////String name=(String)objects[1];
-//System.out.println("Month["+objects[2]+"]");
-//}
+System.out.println(obj.get(0));
+BigDecimal count = (BigDecimal) obj.get(0);
 tx1.commit();
 
 System.out.println("Successful");
@@ -93,58 +85,108 @@ return new ResponseEntity<>( count, HttpStatus.OK);
 
 	//////////////////////////////////////////////////////////////////////////////
 	
-	@SuppressWarnings("unchecked")
-	@RequestMapping(method = RequestMethod.GET,produces="application/json",
-    value = "/api/raceRelation")
-//	@GetMapping("/intervalRate")
-	public ResponseEntity<List<Object[]>> query5(@RequestParam String race, @RequestParam String startYear, @RequestParam String endYear) {
-	//public void query1() {
-		Transaction tx1 = session.beginTransaction();
-//		int in=timeInterval.indexOf('-');
-//		
-//		String startTime=timeInterval.substring(0, in);
-//		String endTime=timeInterval.substring(in+1);
-		System.out.println("\n\nrace is :"+race);
-    	List<Object[]> employees = session.createNativeQuery("select  count(offense_id), year, month from\n"
-    			+ "(select offender_id, victim_id from \"PARCHA.SRIKANTHR\".victim_offender_rel where relationship_id in (5,6,10,11,13,15,17,19,20,21,22,23,26)) \n"
-    			+ "NATURAL JOIN\n"
-    			+ "(select offender_id, incident_id from \"PARCHA.SRIKANTHR\".offender NATURAL JOIN \"PARCHA.SRIKANTHR\".REF_RACE where race_desc=:Race ) \n"
-    			+ "NATURAL JOIN \"PARCHA.SRIKANTHR\".victim NATURAL JOIN (select incident_id, to_char(INCIDENT_DATE, 'YYYY') as Year, to_char(INCIDENT_DATE, 'MM') as Month\n"
-    			+ "from \"PARCHA.SRIKANTHR\".incident\n"
-    			+ "where to_char(INCIDENT_DATE, 'YYYY') >= :StartYear and to_char(INCIDENT_DATE, 'YYYY') <= :EndYear)\n"
-    			+ " NATURAL JOIN \"PARCHA.SRIKANTHR\".offense group by year, month\n"
-    			+ " order by year, month")
-    			.setParameter("Race", race)
-    			.setParameter("StartYear",startYear)
-    			.setParameter("EndYear", endYear)
-    			.list();
-    	System.out.println(employees);
-//    	session.save(human);
-//    	for (Object[] objects : employees) {
-//            //Integer month=Integer.valueOf(objects[2]);
-////            Integer count = (Integer) id;
-////            String name=(String)objects[1];
-//            System.out.println("Month["+objects[2]+"]");
-//         }
-    	tx1.commit();
-    	
-    	System.out.println("Successful");
-    	return new ResponseEntity<>(employees, HttpStatus.OK);
-    	
+@SuppressWarnings("unchecked")
+@RequestMapping(method = RequestMethod.GET,produces="application/json",
+value = "/api/raceRelation")
+public ResponseEntity<HashMap <String, List<Object[]>>> raceFamilyQuery5 (@RequestParam String relation,@RequestParam String startYear, @RequestParam String endYear) {
+
+	Transaction tx1 = session.beginTransaction();
+	List<Object[]> obj = session.createNativeQuery("WITH TEMP AS ( select relationship_id, relationship_name, \n"
+			+ "CASE \n"
+			+ "WHEN relationship_id=6 or relationship_id=26 or relationship_id=21\n"
+			+ "THEN 'Spouse'\n"
+			+ "WHEN relationship_id=5\n"
+			+ "THEN 'Child'\n"
+			+ "WHEN relationship_id=17\n"
+			+ "THEN 'Parent'\n"
+			+ "WHEN relationship_id=19\n"
+			+ "THEN 'Sibling'\n"
+			+ "WHEN relationship_id=20\n"
+			+ "THEN 'Stepchildren'\n"
+			+ "WHEN relationship_id=11\n"
+			+ "THEN 'Grandparent'\n"
+			+ "WHEN relationship_id=10\n"
+			+ "THEN 'Grandchild'\n"
+			+ "WHEN relationship_id=13\n"
+			+ "THEN 'Inlaw'\n"
+			+ "WHEN relationship_id=22\n"
+			+ "THEN 'Stepparent'\n"
+			+ "WHEN relationship_id=23\n"
+			+ "THEN 'Stepsibling'\n"
+			+ "WHEN relationship_id=26\n"
+			+ "THEN 'ExSpouse'\n"
+			+ "END rel_type\n"
+			+ "FROM \"PARCHA.SRIKANTHR\".relationship)\n"
+			+ "\n"
+			+ "\n"
+			+ "select  count(offense_id), year, month, race_desc from\n"
+			+ "(select offender_id, victim_id,relationship_id from \"PARCHA.SRIKANTHR\".victim_offender_rel NATURAL JOIN TEMP where rel_type=:relType) \n"
+			+ "NATURAL JOIN\n"
+			+ "(select offender_id, incident_id,race_desc from \"PARCHA.SRIKANTHR\".offender NATURAL JOIN \"PARCHA.SRIKANTHR\".REF_RACE )\n"
+			+ "NATURAL JOIN \"PARCHA.SRIKANTHR\".victim NATURAL JOIN (select incident_id, to_char(INCIDENT_DATE, 'YYYY') as Year, to_char(INCIDENT_DATE, 'MM') as Month\n"
+			+ "from \"PARCHA.SRIKANTHR\".incident\n"
+			+ "where to_char(INCIDENT_DATE, 'YYYY') >=:StartYear and to_char(INCIDENT_DATE, 'YYYY') <=:EndYear)\n"
+			+ " NATURAL JOIN \"PARCHA.SRIKANTHR\".offense group by race_desc,year, month\n"
+			+ " order by race_desc,year, month")
+			.setParameter("relType", relation)
+			.setParameter("StartYear",startYear)
+			.setParameter("EndYear", endYear)
+			.list();
+	System.out.println(obj);
+	tx1.commit();
+	HashMap <String, List<Object[]>> output=new HashMap <String, List<Object[]>>();
+	
+	for (Object[] objects : obj){ 
+		
+		List < Object[]> records= new ArrayList<Object[]> ();
+		Object[] item=new Object[3];
+		item[0]=objects[0];
+		item[1]=objects[1];
+		item[2]=objects[2];
+		if(objects[3].equals("Black or African American")) 
+			{objects[3]="black";
+			BigDecimal count = (BigDecimal) item[0];
+			item[0] = (count.doubleValue()*1000000)/ 3746469.00;
+			}
+		else if(objects[3].equals("White")) 
+		{	objects[3]="white";
+			BigDecimal count = (BigDecimal) item[0];
+			item[0] = (count.doubleValue()*1000000)/ 22819758.00;
+		}
+		else if(objects[3].equals("Asian")) 
+		{ 
+			objects[3]="asian";
+			BigDecimal count = (BigDecimal) item[0];
+			item[0] = (count.doubleValue()*1000000)/ 1507786.00;
+		}
+		
+		if (output.containsKey(objects[3])){
+			records= output.get(objects[3]);
+			records.add(item);
+		}
+		else {
+			records.add(item);
+			
+			output.put(String.valueOf(objects[3]), records);
+		}
 	}
+	
+
+	System.out.println("Successful");
+	return new ResponseEntity<>(output, HttpStatus.OK);
+}
 	
 	//////////////////////////////////////////////////////////////////////////////
 	
 	@SuppressWarnings("unchecked")
 	@RequestMapping(method = RequestMethod.GET,produces="application/json",
     value = "/api/byCrimeLocation")
-	public ResponseEntity<List<Object[]>> query4(@RequestParam String locationType, @RequestParam String startYear, @RequestParam String endYear) {
-	//public void query1() {
+	public ResponseEntity<List<Object[]>> locationCrime(@RequestParam String locationType, @RequestParam String startYear, @RequestParam String endYear) {
 		Transaction tx1 = session.beginTransaction();
     	
 		System.out.println("location type is : "+locationType);
 		
-    	List<Object[]> employees = session.createNativeQuery("SELECT COUNT(*) AS TOTAL, year, month, LOCATION_TYPE\n"
+    	List<Object[]> obj = session.createNativeQuery("SELECT COUNT(*) AS TOTAL, year, month, LOCATION_TYPE\n"
     			+ "FROM \n"
     			+ "(SELECT * FROM \"PARCHA.SRIKANTHR\".OFFENSE NATURAL JOIN\n"
     			+ "(select incident_id, to_char(INCIDENT_DATE, 'YYYY') as Year, to_char(INCIDENT_DATE, 'MM') as Month\n"
@@ -158,11 +200,11 @@ return new ResponseEntity<>( count, HttpStatus.OK);
     			.setParameter("endYear", endYear)
     			.setParameter("locationType",locationType)
     			.list();
-    	System.out.println(employees);
+    	System.out.println(obj);
     	tx1.commit();
  
     	System.out.println("Successful");
-    	return new ResponseEntity<>(employees, HttpStatus.OK);
+    	return new ResponseEntity<>(obj, HttpStatus.OK);
 	}
 
 	
@@ -170,9 +212,7 @@ return new ResponseEntity<>( count, HttpStatus.OK);
 	@SuppressWarnings("unchecked")
 	@RequestMapping(method = RequestMethod.GET,produces="application/json",
     value = "/api/ageGroupRate")
-	//@GetMapping("/ageGroupRate")
-	public ResponseEntity<HashMap <String, List<Object[]>>> query3(@RequestParam String timeInterval , @RequestParam String startYear, @RequestParam String endYear) {
-	//public void query1() {
+	public ResponseEntity<HashMap <String, List<Object[]>>> ageTimeInterval(@RequestParam String timeInterval , @RequestParam String startYear, @RequestParam String endYear) {
 		Transaction tx1 = session.beginTransaction();
     	
 		int in=timeInterval.indexOf('-');
@@ -180,7 +220,7 @@ return new ResponseEntity<>( count, HttpStatus.OK);
 		String startTime=timeInterval.substring(0, in);
 		String endTime=timeInterval.substring(in+1);
 		
-    	List<Object[]> employees = session.createNativeQuery("WITH TEMP as ( select victim_id, age_num,\n"
+    	List<Object[]> obj = session.createNativeQuery("WITH TEMP as ( select victim_id, age_num,\n"
     			+ "CASE \n"
     			+ "    WHEN age_num <=15\n"
     			+ "    THEN 'Kids' \n"
@@ -210,46 +250,29 @@ return new ResponseEntity<>( count, HttpStatus.OK);
     			.setParameter("startTime",Integer.valueOf(startTime))
     			.setParameter("endTime", Integer.valueOf(endTime))
     			.list();
-    	System.out.println(employees);
+    	System.out.println(obj);
     	tx1.commit();
-//    	session.save(human);
     	HashMap <String, List<Object[]>> output=new HashMap <String, List<Object[]>>();
-//    	String key="";
-//    	HashMap<String,String> keyDict= new HashMap<String,String>();
-//    	keyDict.put("0-12", "Kids");
-//    	keyDict.put("13-19", "Teens");
-//    	keyDict.put("20-35", "YoungAdults");
-//    	keyDict.put("35-60", "Adults");
-//    	keyDict.put("Above 60", "Above60");
-//    	
     	
-    	for (Object[] objects : employees) 
+    	for (Object[] objects : obj) 
     	{ 
-    		
     		List < Object[]> records= new ArrayList<Object[]> ();
     		Object[] item=new Object[3];
     		item[0]=objects[0];
 			item[1]=objects[1];
 			item[2]=objects[2];
-//			String keyItem=keyDict.get(String.valueOf(objects[3]));
     		if (output.containsKey(objects[3]))
     		{
     			records= output.get(objects[3]);
-    			
     			records.add(item);
-    			
-    				
     		}
     		else 
     		{
     			records.add(item);
-    			
     			output.put(String.valueOf(objects[3]), records);
-    			
     		}
     	}
     	
- 
     	System.out.println("Successful");
     	return new ResponseEntity<>(output, HttpStatus.OK);
 	}
@@ -260,13 +283,12 @@ return new ResponseEntity<>( count, HttpStatus.OK);
 	@SuppressWarnings("unchecked")
 	@RequestMapping(method = RequestMethod.GET,produces="application/json",
     value = "/api/raceOffenseType")
-	public ResponseEntity<HashMap <String, List<Object[]>>> query2(@RequestParam String offenseType , @RequestParam String startYear, @RequestParam String endYear) {
-	//public void query1() {
+	public ResponseEntity<HashMap <String, List<Object[]>>> raceOffenseType(@RequestParam String offenseType , @RequestParam String startYear, @RequestParam String endYear) {
 		Transaction tx1 = session.beginTransaction();
     	
 		System.out.println("\n\nOffense Type : "+offenseType);
 		
-    	List<Object[]> employees = session.createNativeQuery("WITH TEMP AS (select offender_id,incident_id,race_desc,\n"
+    	List<Object[]> obj = session.createNativeQuery("WITH TEMP AS (select offender_id,incident_id,race_desc,\n"
     			+ "CASE race_id\n"
     			+ "    WHEN 0\n"
     			+ "    THEN 'Unknown' \n"
@@ -300,25 +322,37 @@ return new ResponseEntity<>( count, HttpStatus.OK);
     			.setParameter("endYear", endYear)
     			.setParameter("offenseType",offenseType)
     			.list();
-    	System.out.println(employees);
+//    	System.out.println(obj);
     	tx1.commit();
     	HashMap <String, List<Object[]>> output=new HashMap <String, List<Object[]>>();
     	
-    	for (Object[] objects : employees){ 
-    		
+    	for (Object[] objects : obj){ 
     		List < Object[]> records= new ArrayList<Object[]> ();
     		Object[] item=new Object[3];
     		item[0]=objects[0];
 			item[1]=objects[1];
 			item[2]=objects[2];
 			if(objects[3].equals("Unknown")) objects[3]="unknown";
-			else if(objects[3].equals("Black or African American")) objects[3]="black";
-			else if(objects[3].equals("White")) objects[3]="white";
+			if(objects[3].equals("Black or African American")) 
+			{objects[3]="black";
+			// item[0]=(Double)item[0]/ (Double)3746468.649;
+			BigDecimal count = (BigDecimal) item[0];
+			item[0] = (count.doubleValue()*1000000.00)/ 3746469.00;
+			}
+			else if(objects[3].equals("White")) 
+			{	objects[3]="white";
+				//item[0]=(BigDecimal)item[0]/ 22819758.347;  //22819758.347
+				BigDecimal count = (BigDecimal) item[0];
+				item[0] = (count.doubleValue()*1000000.00)/ 22819758.0;
+			}
 			else if(objects[3].equals("American Indian or Alaska Native")) objects[3]="americanIndian";
-			else if(objects[3].equals("Asian")) objects[3]="asian";
-		
-			
-//			String keyItem=keyDict.get(String.valueOf(objects[3]));
+			else if(objects[3].equals("Asian")) 
+			{ 
+			objects[3]="asian";
+			BigDecimal count = (BigDecimal) item[0];
+			item[0] = (count.doubleValue()*1000000.00)/ 1507786.00;
+			}
+
     		if (output.containsKey(objects[3])){
     			records= output.get(objects[3]);
     			records.add(item);
@@ -341,44 +375,60 @@ return new ResponseEntity<>( count, HttpStatus.OK);
 	@RequestMapping(method = RequestMethod.GET,produces="application/json",
     value = "/api/intervalRate")
 	@GetMapping("/intervalRate")
-	public ResponseEntity<List<Object[]>> query1(@RequestParam String timeInterval, @RequestParam String startYear, @RequestParam String endYear) {
-	//public void query1() {
+	public ResponseEntity< HashMap <String, List<Object[]>>>intervalRate(@RequestParam String startYear, @RequestParam String endYear) {
 		Transaction tx1 = session.beginTransaction();
-		int in=timeInterval.indexOf('-');
-		
-		String startTime=timeInterval.substring(0, in);
-		String endTime=timeInterval.substring(in+1);
-    	List<Object[]> employees = session.createNativeQuery("SELECT count(*), year, month\n"
+    	List<Object[]> obj = session.createNativeQuery("With temp as (select  incident_id, INCIDENT_DATE, incident_hour, \n"
+    			+ "CASE \n"
+    			+ "	When incident_hour >0 and  incident_hour <=4\n"
+    			+ "THEN 'midnight'\n"
+    			+ "When incident_hour >4 and  incident_hour <=8\n"
+    			+ "THEN 'earlyMorning'\n"
+    			+ "When incident_hour >8 and  incident_hour <=12\n"
+    			+ "THEN 'morning'\n"
+    			+ "When incident_hour >12 and  incident_hour <=16\n"
+    			+ "THEN 'afternoon'\n"
+    			+ "When incident_hour >16 and  incident_hour <=20\n"
+    			+ "THEN 'evening'\n"
+    			+ "When incident_hour >20 and  incident_hour <=24\n"
+    			+ "THEN 'night'\n"
+    			+ "END TIME_INTERVAL\n"
+    			+ "FROM \"PARCHA.SRIKANTHR\".incident)\n"
+    			+ "---select * from temp;\n"
+    			+ "SELECT count(*), year, month, time_interval\n"
     			+ "from (\n"
-    			+ "        select incident_id, to_char(INCIDENT_DATE, 'YYYY') as Year, to_char(INCIDENT_DATE, 'MM') as Month\n"
-    			+ "        from \"PARCHA.SRIKANTHR\".incident\n"
-    			+ "        where to_char(INCIDENT_DATE, 'YYYY') >= :StartYear and to_char(INCIDENT_DATE, 'YYYY') <= :EndYear\n"
-    			+ "        and incident_hour >= :StartTime and incident_hour <= :EndTime\n"
-    			+ "     )\n"
-    			+ "Group By Year, Month\n"
-    			+ "Order by year, month")
-    			.setParameter("StartTime",Integer.valueOf(startTime))
-    			.setParameter("EndTime", Integer.valueOf(endTime))
+    			+ "        select incident_id, to_char(INCIDENT_DATE, 'YYYY') as Year, to_char(INCIDENT_DATE, 'MM') as Month, TIME_INTERVAL\n"
+    			+ "        from temp where to_char(INCIDENT_DATE, 'YYYY') >=:StartYear and to_char(INCIDENT_DATE, 'YYYY') <=:EndYear )\n"
+    			+ "Group By TIME_INTERVAL,Year, Month\n"
+    			+ "Order by TIME_INTERVAL, year, month")
     			.setParameter("StartYear",startYear)
     			.setParameter("EndYear", endYear)
     			.list();
-    	System.out.println(employees);
-//    	session.save(human);
-    	for (Object[] objects : employees) {
-            //Integer month=Integer.valueOf(objects[2]);
-//            Integer count = (Integer) id;
-//            String name=(String)objects[1];
-            System.out.println("Month["+objects[2]+"]");
-         }
+    	System.out.println(obj);
+    	HashMap <String, List<Object[]>> output=new HashMap <String, List<Object[]>>();
+    	
+    	for (Object[] objects : obj){ 
+    		
+    		List < Object[]> records= new ArrayList<Object[]> ();
+    		Object[] item=new Object[3];
+    		item[0]=objects[0];
+			item[1]=objects[1];
+			item[2]=objects[2];
+			
+    		if (output.containsKey(objects[3])){
+    			records= output.get(objects[3]);
+    			records.add(item);
+    		}
+    		else {
+    			records.add(item);
+    			
+    			output.put(String.valueOf(objects[3]), records);
+    		}
+    	}
     	tx1.commit();
     	
     	System.out.println("Successful");
-    	return new ResponseEntity<>(employees, HttpStatus.OK);
+    	return new ResponseEntity<>(output, HttpStatus.OK);
     	
 	}
 	
-	
-
-
-
 }
